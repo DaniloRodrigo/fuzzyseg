@@ -5,7 +5,8 @@
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cv.h>
+#include <math.h>
+
 
 using namespace std;
 
@@ -16,11 +17,17 @@ using namespace std;
 //afinidade mínima 0 -> posição 0 do vetor
 #define NUM_AFF 1000
 
-
 //modifique para que corresponda ao tipo e à forma de acesso ao pixel de sua biblioteca
 //por padrão usa-se aqui OpenCV
+#ifdef FS_OPENCV
 typedef cv::Mat TipoImagem;
-#define GETPIXEL(img, x, y) img->at<uchar>(y, x)
+#define GETPIXEL(img, x, y) img->at<uchar>((y), (x))
+#endif
+
+#ifdef FS_GTKIMG
+typedef Imagem TipoImagem;
+#define GETPIXEL(img, x, y) img->m[y][x][0]
+#endif
 
 
 
@@ -75,11 +82,25 @@ class FuzzySegmentation {
 		return 1*(1.0 - dist/affDF);
 	}
 
+	int media(int x, int y, int size) {
+		int soma = 0;
+		int qtd = 0;
+		for(int i = -size; i <= size; i++) 
+			for(int j = -size; j <= size; j++)
+				if(isValid(x+j, y+i)) {
+					soma += GETPIXEL(refImg, x+j, y+i);
+					qtd++;
+				}
+		return soma/qtd;
+	}
+
 	//retorna a afinidade entre os pixels (x1,y1) e (x2,y2)
 	int getAffinity(int x1, int y1, int x2, int y2) {
 		float disp;
 		int p1 = GETPIXEL(refImg, x1, y1);
 		int p2 = GETPIXEL(refImg, x2, y2);
+		p1 = media(x1, y1, 2);
+		p2 = media(x2, y2, 2);
 		disp = (float)(p2 - p1);
 
 		//essa afinidade leva em conta a distancia para alguma semente
@@ -176,6 +197,28 @@ class FuzzySegmentation {
 						F1(1, -1) F2(1,-1) F3(1,-1) F4(1,-1)
 						F1(-1, -1) F2(-1,-1) F3(-1,-1) F4(-1,-1)
 				}
+			}
+		}
+
+		void step(int k) {
+			for(int vidx = 0; vidx < idx[k]; vidx++) {
+				int x = affx[k].get(vidx);
+				int y = affy[k].get(vidx);
+				int classe = visited[y][x];
+				affinityMatrix[y][x] = ((float)k)/(NUM_AFF-1);
+				//result.at<uchar>(y, x) = 255;//(int) ((255.0*k)/(NUM_AFF-1));
+#define F1(dx, dy) if(isValid(x+dx, y+dy) && !visited[y+dy][x+dx]) {
+#define F2(dx, dy) int afinidade = getAffinity(x, y, x+dx, y+dy);
+#define F3(dx, dy) int a = MIN(k, afinidade);
+#define F4(dx, dy) addAff(a, x+dx, y+dy, classe, dd[y][x]);}
+				F1(1, 0) F2(1,0) F3(1,0) F4(1,0)
+					F1(-1, 0) F2(-1,0) F3(-1,0) F4(-1,0)
+					F1(0,1) F2(0,1) F3(0,1) F4(0,1)
+					F1(0,-1) F2(0,-1) F3(0,-1) F4(0,-1)
+					F1(1,1) F2(1,1) F3(1,1) F4(1,1)
+					F1(1,-1) F2(1,-1) F3(1,-1) F4(1,-1)
+					F1(1, -1) F2(1,-1) F3(1,-1) F4(1,-1)
+					F1(-1, -1) F2(-1,-1) F3(-1,-1) F4(-1,-1)
 			}
 		}
 };
