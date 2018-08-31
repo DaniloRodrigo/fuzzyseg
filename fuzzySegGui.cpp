@@ -4,14 +4,17 @@
 #include <time.h>
 
 GtkWidget *window, *image;
-GtkWidget *vbox, *hbox;
-GtkWidget *label1, *label2;
+GtkWidget *vbox, *hbox1, *hbox2, *hbox3;
+GtkWidget *label1, *label2, *label3, *label4;
 GtkWidget *eventBox;
 char *nomeArquivo;
 
 //widgets das opcoes
-GtkWidget *widgetControleNivel;
-GtkAdjustment *adjustmentControleNivel;
+GtkWidget *widgetControleClasse;
+GtkAdjustment *adjustmentControleClasse;
+
+GtkWidget *widgetControleSegmentacao;
+GtkAdjustment *adjustmentControleSegmentacao;
 
 GtkWidget *widgetMisturarCanais;
 
@@ -22,7 +25,7 @@ typedef struct Imagem {
 	int h;
 	int numCanais;
 } Imagem;
-
+Imagem original, resultado;
 
 #include "fuzzyseg.h"
 
@@ -33,36 +36,7 @@ void printImagemInfo(Imagem img) {
 	printf("Image size %d %d, ch %d\n", img.w, img.h, img.numCanais);
 }
 
-void carregarImagem(GtkWidget *widget, gpointer data) {
-	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File", (GtkWindow *) window, GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, NULL);
-
-	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-		nomeArquivo = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
-		gtk_widget_destroy(dialog);
-	}
-
-	gtk_image_set_from_file(GTK_IMAGE(image), nomeArquivo);
-
-	gtk_widget_queue_draw(image);
-
-	gtk_label_set_text(GTK_LABEL(label1), "Image loaded");
-}
-
-void salvarImagem(GtkWidget *widget, gpointer data) {
-
-	GtkWidget *dialog = gtk_file_chooser_dialog_new("Nome arquivo", (GtkWindow *) window, GTK_FILE_CHOOSER_ACTION_SAVE, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, NULL);
-	char *nomeDestino;
-
-	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-		nomeDestino = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
-		gtk_widget_destroy(dialog);
-		GdkPixbuf *buffer = gtk_image_get_pixbuf(GTK_IMAGE(image));
-		gdk_pixbuf_save(buffer, nomeDestino, "jpeg", NULL, "quality", "100", NULL);
-		gtk_label_set_text(GTK_LABEL(label1), "Image saved");
-	}
-	
-}
-
+//retorna uma NOVA struct Imagem do GtkImage
 Imagem obterMatrizImagem() {
 	int i, j, ch, rowstride;
 	guchar ***m, *pixels, *p;
@@ -92,6 +66,40 @@ Imagem obterMatrizImagem() {
 		}
 	}
 	return img;
+}
+
+
+void carregarImagem(GtkWidget *widget, gpointer data) {
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open File", (GtkWindow *) window, GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, NULL);
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+		nomeArquivo = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
+		gtk_widget_destroy(dialog);
+	}
+
+	gtk_image_set_from_file(GTK_IMAGE(image), nomeArquivo);
+
+	gtk_widget_queue_draw(image);
+
+	gtk_label_set_text(GTK_LABEL(label1), "Image loaded");
+
+	original = obterMatrizImagem();
+	fs = new FuzzySegmentation(&original, original.w, original.h);
+}
+
+void salvarImagem(GtkWidget *widget, gpointer data) {
+
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Nome arquivo", (GtkWindow *) window, GTK_FILE_CHOOSER_ACTION_SAVE, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, NULL);
+	char *nomeDestino;
+
+	if(gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+		nomeDestino = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER(dialog) );
+		gtk_widget_destroy(dialog);
+		GdkPixbuf *buffer = gtk_image_get_pixbuf(GTK_IMAGE(image));
+		gdk_pixbuf_save(buffer, nomeDestino, "jpeg", NULL, "quality", "100", NULL);
+		gtk_label_set_text(GTK_LABEL(label1), "Image saved");
+	}
+	
 }
 
 void atualizarGtkImage(Imagem img) {
@@ -143,22 +151,12 @@ void desalocarImagem(Imagem referencia) {
 Imagem meuFiltro(Imagem origem) {
 	int i, j;
 	Imagem destino = alocarImagem(origem);
-	int nivel = (int) gtk_adjustment_get_value(adjustmentControleNivel);
-	int ch1, ch2, ch3;
+	int nivel = (int) gtk_adjustment_get_value(adjustmentControleClasse);
 
-	fs = new FuzzySegmentation(&origem, origem.w, origem.h);
-	for(int i = 0; i < seeds[0].size(); i++)
-		fs->addSeed(seeds[0][i], seeds[1][i], seeds[2][i]);
-	fs->fuzzySeg(1000);
-
-	ch1 = 0;
-	ch2 = 1;
-	ch3 = 2;
-	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgetMisturarCanais))) {
-		ch1 = rand()%3;
-		ch2 = (ch1+1+rand()%2)%3;
-		ch3 = 3 - ch2 - ch1;
-	}
+	//fs = new FuzzySegmentation(&origem, origem.w, origem.h);
+	//for(int i = 0; i < seeds[0].size(); i++)
+	//	fs->addSeed(seeds[0][i], seeds[1][i], seeds[2][i]);
+	fs->fuzzySeg();
 
 	for(j = 0; j < destino.w; j++) {
 		for(i = 0; i < destino.h; i++) {
@@ -173,6 +171,30 @@ Imagem meuFiltro(Imagem origem) {
 	return destino;
 }
 
+Imagem meuFiltro2(Imagem origem) {
+	int i, j;
+	Imagem destino = alocarImagem(origem);
+	int nivel = (int) gtk_adjustment_get_value(adjustmentControleSegmentacao);
+
+/*	fs = new FuzzySegmentation(&origem, origem.w, origem.h);
+	for(int i = 0; i < seeds[0].size(); i++)
+		fs->addSeed(seeds[0][i], seeds[1][i], seeds[2][i]);*/
+	fs->step(NUM_AFF - nivel - 1);
+
+	for(j = 0; j < destino.w; j++) {
+		for(i = 0; i < destino.h; i++) {
+			int r = 255*((fs->getClasse(j, i)&1) != 0);
+			int g = 255*((fs->getClasse(j, i)&2) != 0);
+			int b = 255*((fs->getClasse(j, i)&4) != 0);
+			destino.m[i][j][0] = MIN(r*fs->getAffinity(j, i), 255);
+			destino.m[i][j][1] = MIN(g*fs->getAffinity(j, i), 255);
+			destino.m[i][j][2] = MIN(b*fs->getAffinity(j, i), 255);
+		}
+	}
+	return destino;
+}
+
+
 void funcaoRestaurar(GtkWidget *widget, gpointer data) {
 
 	gtk_image_set_from_file(GTK_IMAGE(image), nomeArquivo);
@@ -183,20 +205,33 @@ void funcaoRestaurar(GtkWidget *widget, gpointer data) {
 void funcaoAplicar(GtkWidget *widget, gpointer data) {
 
 	funcaoRestaurar(NULL, NULL);
-	Imagem img = obterMatrizImagem();
-	Imagem res = meuFiltro(img);
-	desalocarImagem(img);
+	//Imagem img = obterMatrizImagem();
+	Imagem res = meuFiltro(original);
+	//desalocarImagem(img);
 	atualizarGtkImage(res);
 	desalocarImagem(res);
 	gtk_label_set_text(GTK_LABEL(label1), "Filter applied");
 }   
 
+void funcaoAplicarPasso(GtkWidget *widget, gpointer data) {
+
+	funcaoRestaurar(NULL, NULL);
+	//Imagem img = obterMatrizImagem();
+	Imagem res = meuFiltro2(original);
+	//desalocarImagem(img);
+	atualizarGtkImage(res);
+	desalocarImagem(res);
+	gtk_label_set_text(GTK_LABEL(label1), "Filter applied");
+}   
+
+
 gboolean funcaoMouse(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-	seeds[0].push_back((int)event->x);
-	seeds[1].push_back((int)event->y);
-	int nivel = (int) gtk_adjustment_get_value(adjustmentControleNivel);
-	seeds[2].push_back(nivel);
+//	seeds[0].push_back((int)event->x);
+//	seeds[1].push_back((int)event->y);
+	int nivel = (int) gtk_adjustment_get_value(adjustmentControleClasse);
+//	seeds[2].push_back(nivel);
 	printf("seed at %f %f, class %d\n", event->x, event->y, nivel);
+	fs->addSeed((int)event->x, (int)event->y, nivel);
 }
 
 int main(int argc, char **argv) {
@@ -218,7 +253,7 @@ int main(int argc, char **argv) {
 	gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
 	//altera o tamanho da janela
-	gtk_window_set_default_size(GTK_WINDOW(window), 600, 400);
+	gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
 
 	//a janela pode ser redimensionada
 	gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
@@ -234,7 +269,9 @@ int main(int argc, char **argv) {
 	gtk_container_set_border_width(GTK_CONTAINER(vbox2), 20);
 
 	//GtkHBox eh um container horizontal para widgets
-	hbox = gtk_hbox_new(TRUE, 3);
+	hbox1 = gtk_hbox_new(TRUE, 3);
+	hbox2 = gtk_hbox_new(TRUE, 3);
+	hbox3 = gtk_hbox_new(TRUE, 3);
 
 	//cria um botao com titulo carregar imagem
 	GtkWidget *botaoCarregar = gtk_button_new_with_label("Load Image");
@@ -256,8 +293,10 @@ int main(int argc, char **argv) {
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW (scrolledWindow), GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
 
 	//widgets das opcoes de filtro
-	adjustmentControleNivel =  gtk_adjustment_new(0, 1, 30, 1, 1, 1);
-	widgetControleNivel = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjustmentControleNivel);
+	adjustmentControleClasse =  gtk_adjustment_new(0, 1, 30, 1, 1, 1);
+	widgetControleClasse = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjustmentControleClasse);
+	adjustmentControleSegmentacao =  gtk_adjustment_new(0, 0, NUM_AFF-1, 1.0, 100.0, 0);
+	widgetControleSegmentacao = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjustmentControleSegmentacao);
 	widgetMisturarCanais = gtk_check_button_new_with_label("Mix Channels");
 
 
@@ -266,11 +305,11 @@ int main(int argc, char **argv) {
 	//altera o tamanho do botao aplicar
 	gtk_widget_set_size_request(botaoAplicar, 70, 30);
 
-	//adiciona os botoes no container horizontal (hbox)
-	gtk_container_add(GTK_CONTAINER(hbox), botaoCarregar);
-	gtk_container_add(GTK_CONTAINER(hbox), botaoAplicar);
-	gtk_container_add(GTK_CONTAINER(hbox), botaoRestaurar);
-	gtk_container_add(GTK_CONTAINER(hbox), botaoSalvar);
+	//adiciona os botoes no container horizontal (hbox1)
+	gtk_container_add(GTK_CONTAINER(hbox1), botaoCarregar);
+	gtk_container_add(GTK_CONTAINER(hbox1), botaoAplicar);
+	gtk_container_add(GTK_CONTAINER(hbox1), botaoRestaurar);
+	gtk_container_add(GTK_CONTAINER(hbox1), botaoSalvar);
 
 	//cria labels
 	label1 = gtk_label_new("Load an image");
@@ -288,13 +327,19 @@ int main(int argc, char **argv) {
 	gtk_container_add(GTK_CONTAINER(eventBox), image);
 	gtk_container_add(GTK_CONTAINER(scrolledWindow), eventBox);
 
-	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(vbox), hbox1, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), label1, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), label2, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), frameFiltro, FALSE, FALSE, 0);
 
 	gtk_container_add(GTK_CONTAINER(frameFiltro), vbox2);
-	gtk_container_add(GTK_CONTAINER(vbox2), widgetControleNivel);
+	gtk_box_pack_start(GTK_BOX(hbox2), gtk_label_new("Class"), FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(hbox2), widgetControleClasse);
+	gtk_box_pack_start(GTK_BOX(hbox3), gtk_label_new("Segmentation Step"), FALSE, FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(hbox3), widgetControleSegmentacao);
+
+	gtk_container_add(GTK_CONTAINER(vbox2), hbox2);
+	gtk_container_add(GTK_CONTAINER(vbox2), hbox3);
 	gtk_container_add(GTK_CONTAINER(vbox2), widgetMisturarCanais);
 
 	//adiciona o vbox na janela (window)
@@ -310,7 +355,7 @@ int main(int argc, char **argv) {
 	g_signal_connect(G_OBJECT(botaoAplicar), "clicked", G_CALLBACK(funcaoAplicar), NULL);
 	
 	//conecta o evento clicked do botaoAplicar a funcaoTeste (argv[0] eh o argumento)
-	//g_signal_connect(G_OBJECT(widgetControleNivel), "value-changed", G_CALLBACK(funcaoAplicar), NULL);
+	g_signal_connect(G_OBJECT(widgetControleSegmentacao), "value-changed", G_CALLBACK(funcaoAplicarPasso), NULL);
 	
 	//conecta o evento clicked do botaoRestaurar a funcaoRestaurar
 	g_signal_connect(G_OBJECT(botaoRestaurar), "clicked", G_CALLBACK(funcaoRestaurar), NULL);
