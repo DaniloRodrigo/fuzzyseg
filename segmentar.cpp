@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 		fs.addSeed(x, y, classe);
 	}
 
-	fs.fuzzySeg(1000);
+	fs.fuzzySeg();
 
 	printf("Size res = %d %d\n", res.rows, res.cols);
 	for(int i = 0; i < res.rows; i++)
